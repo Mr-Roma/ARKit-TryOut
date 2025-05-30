@@ -38,7 +38,7 @@ class CustomARView: ARView {
     var onCapture: ((UIImage) -> Void)?
     private var selectedTattooImage: String? = "tattoo1"
     
-    // Gesture recognizers
+    // Gesture recognizer
     private func addPinchGesture() {
         let pinchGesture = UIPinchGestureRecognizer(target: self, action: #selector(handlePinch(_:)))
         self.addGestureRecognizer(pinchGesture)
