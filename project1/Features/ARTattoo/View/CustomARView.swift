@@ -12,6 +12,9 @@ import SwiftUI
 import RealityKit
 
 class CustomARView: ARView {
+    private var bodyAnchor: ARBodyAnchor?
+    private var bodyIndicator: ModelEntity?
+    
     required init(frame frameRect: CGRect) {
         super.init(frame: frameRect)
     }
@@ -30,6 +33,9 @@ class CustomARView: ARView {
         addPinchGesture()
         addRotationGesture()
         addPanGesture()
+        
+        // Set up session delegate
+        session.delegate = self
     }
     
     private var cancellables: Set<AnyCancellable> = []
@@ -95,8 +101,8 @@ class CustomARView: ARView {
     }
     
     func setupARSession() {
-        let configuration = ARWorldTrackingConfiguration()
-        configuration.planeDetection = [.horizontal, .vertical]
+        let configuration = ARBodyTrackingConfiguration()
+        configuration.isAutoFocusEnabled = true
         
         session.run(configuration)
     }
@@ -115,18 +121,28 @@ class CustomARView: ARView {
             return
         }
         
-        // If no entity was tapped, try to place a new one
-        if let result = raycastToPlane(from: location) {
-            if let tattooImage = selectedTattooImage {
-                placeTattooAt(position: result.worldTransform.translation, imageName: tattooImage)
+        // Get the body anchor if available
+        if let bodyAnchor = session.currentFrame?.anchors.first(where: { $0 is ARBodyAnchor }) as? ARBodyAnchor {
+            // Get the position of the body part we want to place the tattoo on
+            let bodyPosition = bodyAnchor.transform.translation
+            
+            // Create a ray from the tap location
+            let ray = raycast(from: location, allowing: .estimatedPlane, alignment: .any)
+            if let result = ray.first {
+                // Use the hit position for more accurate placement
+                if let tattooImage = selectedTattooImage {
+                    placeTattooAt(position: result.worldTransform.translation, imageName: tattooImage)
+                }
             } else {
-                placeBlockAt(position: result.worldTransform.translation, color: selectedColor)
+                // Fallback to body position if raycast fails
+                if let tattooImage = selectedTattooImage {
+                    placeTattooAt(position: bodyPosition, imageName: tattooImage)
+                }
             }
         } else {
+            // Fallback to placing in front of camera if no body is detected
             if let tattooImage = selectedTattooImage {
                 placeTattooInFrontOfCamera(imageName: tattooImage)
-            } else {
-                placeBlockInFrontOfCamera(color: selectedColor)
             }
         }
     }
@@ -178,9 +194,13 @@ class CustomARView: ARView {
                 // Create anchor and add entity
                 let anchor = AnchorEntity(world: position)
                 
-                // Set initial orientation to be horizontal and correct side up
-                let horizontalRotation = simd_quatf(angle: -.pi / 2, axis: SIMD3<Float>(1, 0, 0))
-                entity.orientation = horizontalRotation
+                // Set initial orientation to make the plane stand vertically
+                // First rotate 90 degrees around X-axis to make it vertical
+//                let verticalRotation = simd_quatf(angle: .pi/2, axis: SIMD3<Float>(1, 0, 0))
+//                entity.orientation = verticalRotation
+                
+                // Add a larger offset to make the tattoo float above the surface
+                entity.position = SIMD3<Float>(0, 0.1, 0) // 10cm up from the surface
                 
                 anchor.addChild(entity)
                 scene.addAnchor(anchor)
@@ -225,6 +245,60 @@ class CustomARView: ARView {
                 self.onCapture?(image)
             }
         }
+    }
+    
+    private func createBodyIndicator() -> ModelEntity {
+        // Create a small sphere to indicate body detection
+        let sphere = MeshResource.generateSphere(radius: 0.05)
+        let material = SimpleMaterial(color: .green, isMetallic: false)
+        let entity = ModelEntity(mesh: sphere, materials: [material])
+        return entity
+    }
+    
+    private func updateBodyIndicator(with anchor: ARBodyAnchor) {
+        if bodyIndicator == nil {
+            bodyIndicator = createBodyIndicator()
+            scene.addAnchor(AnchorEntity(world: anchor.transform.translation))
+            scene.anchors.first?.addChild(bodyIndicator!)
+        }
+        
+        // Update position to follow the body
+        if let indicator = bodyIndicator {
+            scene.anchors.first?.position = anchor.transform.translation
+        }
+    }
+    
+    private func removeBodyIndicator() {
+        if let indicator = bodyIndicator {
+            indicator.removeFromParent()
+            bodyIndicator = nil
+        }
+    }
+}
+
+// MARK: - ARSessionDelegate
+extension CustomARView: ARSessionDelegate {
+    func session(_ session: ARSession, didUpdate anchors: [ARAnchor]) {
+        // Check for body anchor updates
+        if let bodyAnchor = anchors.first(where: { $0 is ARBodyAnchor }) as? ARBodyAnchor {
+            self.bodyAnchor = bodyAnchor
+            updateBodyIndicator(with: bodyAnchor)
+        } else {
+            removeBodyIndicator()
+        }
+    }
+    
+    func session(_ session: ARSession, didFailWithError error: Error) {
+        removeBodyIndicator()
+    }
+    
+    func sessionWasInterrupted(_ session: ARSession) {
+        removeBodyIndicator()
+    }
+    
+    func sessionInterruptionEnded(_ session: ARSession) {
+        // Session interruption ended, but we don't need to do anything special here
+        // as the session will automatically resume tracking
     }
 }
 

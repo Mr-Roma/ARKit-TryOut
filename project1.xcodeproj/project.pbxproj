@@ -29,22 +29,9 @@
 		B4E915D62DE8341900938747 /* project1UITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = project1UITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		B4E916062DE8555700938747 /* Exceptions for "project1" folder in "project1" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Info.plist,
-			);
-			target = B4E915BE2DE8341800938747 /* project1 */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
-
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		B4E915C12DE8341800938747 /* project1 */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				B4E916062DE8555700938747 /* Exceptions for "project1" folder in "project1" target */,
-			);
 			path = project1;
 			sourceTree = "<group>";
 		};
@@ -413,9 +400,8 @@
 				DEVELOPMENT_TEAM = 43D48TSAU5;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = project1/Info.plist;
-				INFOPLIST_KEY_NSCameraUsageDescription = "Needed to show the AR ";
-				INFOPLIST_KEY_NSFileProviderDomainUsageDescription = "";
+				INFOPLIST_FILE = project1/Info2.plist;
+				INFOPLIST_KEY_NSCameraUsageDescription = "We need camera access to track your body and place tattoos in AR.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "We need access to save your tattoo design to your photo library.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "We need access to save your tattoo design to your photo library.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -447,9 +433,8 @@
 				DEVELOPMENT_TEAM = 43D48TSAU5;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = project1/Info.plist;
-				INFOPLIST_KEY_NSCameraUsageDescription = "Needed to show the AR ";
-				INFOPLIST_KEY_NSFileProviderDomainUsageDescription = "";
+				INFOPLIST_FILE = project1/Info2.plist;
+				INFOPLIST_KEY_NSCameraUsageDescription = "We need camera access to track your body and place tattoos in AR.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "We need access to save your tattoo design to your photo library.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "We need access to save your tattoo design to your photo library.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
