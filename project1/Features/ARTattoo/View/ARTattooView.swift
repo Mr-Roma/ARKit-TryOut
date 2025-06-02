@@ -11,21 +11,17 @@ import ARKit
 
 
 struct ARTattooView: View {
-    @State private var colors: [Color] = [
-        .green,
-        .red,
-        .blue
-    ]
+    
+    @ObservedObject var arManager = ARManager.shared // Observe ARManager
     
     @State private var tattooImages: [String] = [
         "tattoo1",
         "tattoo2",
         "tattoo3",
         "tattoo4",
+        "tattoo5",
         
     ]
-    
-    @State private var selectedImageIndex: Int = 0
     
     @State private var isCameraButtonClicked: Bool = false
     @State private var capturedImage: UIImage?
@@ -56,20 +52,45 @@ struct ARTattooView: View {
                             ScrollView(.horizontal, showsIndicators: false) {
                                 HStack(spacing: 12) {
                                     
-                                    
-                                    ForEach(Array(tattooImages.enumerated()), id: \.element) { index, tattoo in
+                                    // Display default tattoo images
+                                    ForEach(Array(tattooImages.enumerated()), id: \.element) { index, tattooName in
                                         Button {
-                                            selectedImageIndex = index
-                                            ARManager.shared.actionStream.send(.placeTattoo(imageName: tattoo))
+                                            // Select the default image in ARManager
+                                            arManager.selectDefaultImage(name: tattooName)
+                                            // Send action to place the currently selected image
+                                            ARManager.shared.actionStream.send(.placeTattoo)
                                         } label: {
-                                            Image(tattoo)
+                                            Image(tattooName)
                                                 .resizable()
                                                 .scaledToFit()
                                                 .cornerRadius(4)
                                                 .frame(width: 120, height: 120)
                                                 .overlay(
+                                                    // Highlight the selected image
                                                     RoundedRectangle(cornerRadius: 4)
-                                                        .stroke(selectedImageIndex == index ? Color.blue : Color.clear, lineWidth: 3)
+                                                        .stroke(arManager.selectedTattooImage == UIImage(named: tattooName) ? Color.blue : Color.clear, lineWidth: 3)
+                                                )
+                                        }
+                                    }
+                                    
+                                    // Display custom uploaded images
+                                    ForEach(0..<arManager.customTattooImages.count, id: \.self) { index in
+                                        let customImage = arManager.customTattooImages[index]
+                                        Button {
+                                            // Select the custom image in ARManager
+                                            arManager.selectCustomImage(at: index)
+                                            // Send action to place the currently selected image
+                                            ARManager.shared.actionStream.send(.placeTattoo)
+                                        } label: {
+                                            Image(uiImage: customImage)
+                                                .resizable()
+                                                .scaledToFit()
+                                                .cornerRadius(4)
+                                                .frame(width: 120, height: 120)
+                                                .overlay(
+                                                    // Highlight the selected image
+                                                    RoundedRectangle(cornerRadius: 4)
+                                                        .stroke(arManager.selectedTattooImage == customImage ? Color.blue : Color.clear, lineWidth: 3)
                                                 )
                                         }
                                     }
@@ -126,16 +147,18 @@ struct ARTattooView: View {
                                 
                                 Spacer()
                                 
-                                NavigationLink(destination: TattooSummaryView(image: capturedImage ?? UIImage())){
-                                   Text("Done")
-                                        .font(.title3)
-                                        .foregroundStyle(.white)
-                                        .fontWeight(.bold)
-                                        .padding(.horizontal, 20)
-                                        .padding(.vertical, 12)
-                                        .background(Color.blue)
-                                        .cornerRadius(12)
-                                        
+                                // Ensure capturedImage is not nil before navigating
+                                if let capturedImage = capturedImage {
+                                    NavigationLink(destination: TattooSummaryView(image: capturedImage)){
+                                       Text("Done")
+                                            .font(.title3)
+                                            .foregroundStyle(.white)
+                                            .fontWeight(.bold)
+                                            .padding(.horizontal, 20)
+                                            .padding(.vertical, 12)
+                                            .background(Color.blue)
+                                            .cornerRadius(12)
+                                    }
                                 }
                             }
                             .padding(.bottom, 20)
@@ -145,7 +168,6 @@ struct ARTattooView: View {
             }
     }
 }
-
 
 
 #Preview {

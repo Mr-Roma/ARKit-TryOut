@@ -10,6 +10,7 @@ import ARKit
 import Combine
 import SwiftUI
 import RealityKit
+import UIKit // Import UIKit for UIImage
 
 class CustomARView: ARView {
     private var bodyAnchor: ARBodyAnchor?
@@ -42,7 +43,6 @@ class CustomARView: ARView {
     private var selectedColor: Color = .blue // Default color
     private var selectedEntity: ModelEntity? = nil
     var onCapture: ((UIImage) -> Void)?
-    private var selectedTattooImage: String? = "tattoo1"
     
     // Gesture recognizer
     private func addPinchGesture() {
@@ -121,6 +121,12 @@ class CustomARView: ARView {
             return
         }
         
+        // Get the currently selected tattoo image from ARManager
+        guard let tattooImage = ARManager.shared.selectedTattooImage else {
+            print("No tattoo image selected.")
+            return
+        }
+        
         // Get the body anchor if available
         if let bodyAnchor = session.currentFrame?.anchors.first(where: { $0 is ARBodyAnchor }) as? ARBodyAnchor {
             // Get the position of the body part we want to place the tattoo on
@@ -130,20 +136,14 @@ class CustomARView: ARView {
             let ray = raycast(from: location, allowing: .estimatedPlane, alignment: .any)
             if let result = ray.first {
                 // Use the hit position for more accurate placement
-                if let tattooImage = selectedTattooImage {
-                    placeTattooAt(position: result.worldTransform.translation, imageName: tattooImage)
-                }
+                placeTattooAt(position: result.worldTransform.translation, image: tattooImage)
             } else {
                 // Fallback to body position if raycast fails
-                if let tattooImage = selectedTattooImage {
-                    placeTattooAt(position: bodyPosition, imageName: tattooImage)
-                }
+                placeTattooAt(position: bodyPosition, image: tattooImage)
             }
         } else {
             // Fallback to placing in front of camera if no body is detected
-            if let tattooImage = selectedTattooImage {
-                placeTattooInFrontOfCamera(imageName: tattooImage)
-            }
+            placeTattooInFrontOfCamera(image: tattooImage)
         }
     }
     
@@ -172,49 +172,42 @@ class CustomARView: ARView {
         placeBlockAt(position: position, color: color)
     }
     
-    
-    func placeTattooAt(position: SIMD3<Float>, imageName: String) {
+    // New function to place a tattoo using UIImage
+    func placeTattooAt(position: SIMD3<Float>, image: UIImage) {
         // Remove any existing tattoos
         scene.anchors.removeAll()
         
-        // Create a plane for the tattoo
-        let plane = MeshResource.generatePlane(width: 0.2, height: 0.2)
+        // Create a plane for the tattoo (adjust size as needed)
+        let plane = MeshResource.generatePlane(width: 0.2, height: 0.2) // Adjust size
         
         // Create material with the tattoo image
-        if let image = UIImage(named: imageName) {
-            let textureOptions = TextureResource.CreateOptions(semantic: .color)
-            if let texture = try? TextureResource.generate(from: image.cgImage!, options: textureOptions) {
-                var material = SimpleMaterial()
-                material.color = .init(tint: .white, texture: .init(texture))
-                material.roughness = .init(floatLiteral: 0.5)
-                material.metallic = .init(floatLiteral: 0.0)
-                
-                let entity = ModelEntity(mesh: plane, materials: [material])
-                
-                // Create anchor and add entity
-                let anchor = AnchorEntity(world: position)
-                
-                // Set initial orientation to make the plane stand vertically
-                // First rotate 90 degrees around X-axis to make it vertical
-//                let verticalRotation = simd_quatf(angle: .pi/2, axis: SIMD3<Float>(1, 0, 0))
-//                entity.orientation = verticalRotation
-                
-                // Add a larger offset to make the tattoo float above the surface
-                entity.position = SIMD3<Float>(0, 0.1, 0) // 10cm up from the surface
-                
-                anchor.addChild(entity)
-                scene.addAnchor(anchor)
-                selectedEntity = entity
-            }
+        let textureOptions = TextureResource.CreateOptions(semantic: .color)
+        if let texture = try? TextureResource.generate(from: image.cgImage!, options: textureOptions) {
+            var material = UnlitMaterial() // Use UnlitMaterial for transparency
+            material.baseColor = MaterialColorParameter.texture(texture) // Correct way to assign texture
+            // Transparency is handled by the texture's alpha channel with UnlitMaterial
+            
+            let entity = ModelEntity(mesh: plane, materials: [material])
+            
+            // Create anchor and add entity
+            let anchor = AnchorEntity(world: position)
+            
+            // Add an offset to make the tattoo float above the surface
+            entity.position = SIMD3<Float>(0, 0.1, 0) // 10cm up from the surface
+            
+            anchor.addChild(entity)
+            scene.addAnchor(anchor)
+            selectedEntity = entity
         }
     }
     
-    func placeTattooInFrontOfCamera(imageName: String) {
+    // New function to place a tattoo in front of camera using UIImage
+    func placeTattooInFrontOfCamera(image: UIImage) {
         let cameraTransform = cameraTransform
         let forwardDirection = -cameraTransform.matrix.columns.2
         let position = cameraTransform.translation + normalize(SIMD3<Float>(forwardDirection.x, forwardDirection.y, forwardDirection.z)) * 0.7
         
-        placeTattooAt(position: position, imageName: imageName)
+        placeTattooAt(position: position, image: image)
     }
     
     func subscribeToActionStream() {
@@ -232,8 +225,9 @@ class CustomARView: ARView {
                     case .captureScreenshot:
                         self?.captureScreenshot()
                         
-                    case .placeTattoo(let imageName):
-                        self?.selectedTattooImage = imageName
+                    case .placeTattoo: // Handle the updated case
+                        // Placement is now triggered by tap gesture using selected image from ARManager
+                        break // No action needed here anymore
                 }
             }
             .store(in: &cancellables)

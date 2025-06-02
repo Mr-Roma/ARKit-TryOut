@@ -17,16 +17,19 @@ struct HomeView: View {
         "tattoo2",
         "tattoo3",
         "tattoo4",
+        "tattoo5",
     ]
     
     @State private var selectedItem: PhotosPickerItem?
     @State private var showingImagePicker = false
     @State private var inputImage: UIImage?
     @State private var showPermissionAlert = false
-    @State private var customTattooImages: [UIImage] = []
     @State private var isProcessing = false
     @State private var showError = false
     @State private var errorMessage = ""
+    
+    // Access the shared ARManager
+    @ObservedObject var arManager = ARManager.shared
     
     // Define grid columns for LazyVGrid
     let columns = [GridItem(.flexible()), GridItem(.flexible())]
@@ -48,7 +51,7 @@ struct HomeView: View {
                 .foregroundColor(.white)
                 .cornerRadius(10)
                 
-                NavigationLink(destination: ARTattooView() ){
+                NavigationLink(destination: VisionTattooView() ){
                     Text("Using Image")
                         .frame(maxWidth: .infinity)
                 }
@@ -71,19 +74,29 @@ struct HomeView: View {
                     .onChange(of: selectedItem) { newItem in
                         Task {
                             isProcessing = true
+                            errorMessage = ""
+                            showError = false
                             do {
                                 if let data = try? await newItem?.loadTransferable(type: Data.self),
                                    let image = UIImage(data: data) {
-                                    // Process the image to remove background
-                                    let processedImage = try await ImageProcessingService.shared.removeBackground(from: image)
+                                    
+                                    // Process the image to remove white background
+                                    let processedImage = try ImageProcessingService.shared.removeWhiteColorSimple(from: image)
+                                    
                                     await MainActor.run {
-                                        customTattooImages.append(processedImage)
+                                        arManager.addCustomImage(processedImage)
+                                        isProcessing = false
+                                    }
+                                } else {
+                                    await MainActor.run {
+                                        errorMessage = "Failed to load image."
+                                        showError = true
                                         isProcessing = false
                                     }
                                 }
                             } catch {
                                 await MainActor.run {
-                                    errorMessage = error.localizedDescription
+                                    errorMessage = "Image processing failed: \(error.localizedDescription)"
                                     showError = true
                                     isProcessing = false
                                 }
@@ -93,15 +106,10 @@ struct HomeView: View {
                 }
                 .padding(.horizontal)
                 
-//                InputImageView()
-                
-             
                 if isProcessing {
                     ProgressView("Processing image...")
                         .padding()
                 }
-                
-                
                 
                 ScrollView{
                     LazyVGrid(columns: columns, spacing: 20) {
@@ -112,15 +120,21 @@ struct HomeView: View {
                                 .scaledToFit()
                                 .frame(width: 150, height: 150)
                                 .border(Color.gray)
+                                .onTapGesture {
+                                    arManager.selectDefaultImage(name: tattooImage)
+                                }
                         }
                         
-                        // Display custom uploaded images
-                        ForEach(0..<customTattooImages.count, id: \.self) { index in
-                            Image(uiImage: customTattooImages[index])
+                        // Display custom uploaded images from ARManager
+                        ForEach(0..<arManager.customTattooImages.count, id: \.self) { index in
+                            Image(uiImage: arManager.customTattooImages[index])
                                 .resizable()
                                 .scaledToFit()
                                 .frame(width: 150, height: 150)
                                 .border(Color.gray)
+                                .onTapGesture {
+                                    arManager.selectCustomImage(at: index)
+                                }
                         }
                     }
                     .padding()
